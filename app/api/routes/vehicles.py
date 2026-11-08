@@ -45,6 +45,20 @@ def list_vehicles(db: Session = Depends(get_db)):
     return db.query(Vehicle).order_by(Vehicle.created_at.desc()).all()
 
 
+@router.get("/{vehicle_id}", response_model=VehicleResponse)
+def get_vehicle(vehicle_id: UUID, db: Session = Depends(get_db)):
+    """Retrieve a specific vehicle by its UUID."""
+    db_vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
+
+    if db_vehicle is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle not found.",
+        )
+
+    return db_vehicle
+
+
 @router.patch("/{vehicle_id}", response_model=VehicleResponse)
 def update_vehicle(
     vehicle_id: UUID,
@@ -65,7 +79,7 @@ def update_vehicle(
     for field, value in update_data.items():
         if value is None and field not in {"manufacture_year", "vin"}:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"{field} cannot be null.",
             )
 
@@ -83,3 +97,23 @@ def update_vehicle(
     db.refresh(db_vehicle)
 
     return db_vehicle
+
+
+@router.delete(
+    "/{vehicle_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_vehicle(vehicle_id: UUID, db: Session = Depends(get_db)):
+    """Delete an existing vehicle from the fleet."""
+    db_vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
+
+    if db_vehicle is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle not found.",
+        )
+
+    db.delete(db_vehicle)
+    db.commit()
+
+    return None

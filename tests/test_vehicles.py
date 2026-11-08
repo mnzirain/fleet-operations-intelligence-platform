@@ -36,6 +36,89 @@ def configure_mock_database(mock_db, vehicle):
     mock_db.query.return_value.filter.return_value.first.return_value = vehicle
 
 
+def test_get_vehicle_successfully():
+    """Verify that a vehicle can be retrieved by its UUID."""
+    mock_db = Mock()
+    mock_vehicle = create_mock_vehicle()
+
+    configure_mock_database(mock_db, mock_vehicle)
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    try:
+        response = client.get(f"/vehicles/{VEHICLE_ID}")
+
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["id"] == str(VEHICLE_ID)
+        assert data["fleet_number"] == "FLT-002"
+        assert data["registration_number"] == "XYZ-456-GP"
+        assert data["make"] == "Toyota"
+        assert data["model"] == "Hilux"
+
+        mock_db.commit.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_vehicle_not_found():
+    """Verify that retrieving a non-existent vehicle returns 404."""
+    mock_db = Mock()
+    configure_mock_database(mock_db, None)
+
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    try:
+        response = client.get(f"/vehicles/{VEHICLE_ID}")
+
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Vehicle not found."}
+
+        mock_db.commit.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_delete_vehicle_successfully():
+    """Verify that an existing vehicle can be deleted."""
+    mock_db = Mock()
+    mock_vehicle = create_mock_vehicle()
+
+    configure_mock_database(mock_db, mock_vehicle)
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    try:
+        response = client.delete(f"/vehicles/{VEHICLE_ID}")
+
+        assert response.status_code == 204
+        assert response.content == b""
+
+        mock_db.delete.assert_called_once_with(mock_vehicle)
+        mock_db.commit.assert_called_once()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_delete_vehicle_not_found():
+    """Verify that deleting a non-existent vehicle returns 404."""
+    mock_db = Mock()
+    configure_mock_database(mock_db, None)
+
+    app.dependency_overrides[get_db] = lambda: mock_db
+
+    try:
+        response = client.delete(f"/vehicles/{VEHICLE_ID}")
+
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Vehicle not found."}
+
+        mock_db.delete.assert_not_called()
+        mock_db.commit.assert_not_called()
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_update_vehicle_successfully():
     """Verify that a vehicle can be partially updated."""
     mock_db = Mock()
