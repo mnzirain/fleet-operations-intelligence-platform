@@ -17,6 +17,9 @@ jobs:
     name: Code Quality and Automated Tests
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: "postgresql+psycopg://fleet_app:ci_test_password@localhost:5432/fleet_operations"
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
