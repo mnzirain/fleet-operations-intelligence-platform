@@ -1,20 +1,12 @@
-from fastapi import FastAPI
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Annotated
 
+from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
-class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
-
-    fleet_environment: str = "development"
-
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-
-
-settings = Settings()
+from app.core.config import settings
+from app.db.session import get_db
 
 app = FastAPI(
     title="Fleet Operations Intelligence Platform",
@@ -40,3 +32,20 @@ def root():
 def health_check():
     """Check whether the application process is running."""
     return {"status": "healthy"}
+
+
+@app.get("/health/ready")
+def readiness_check(db: Annotated[Session, Depends(get_db)]):
+    """Check whether the application can communicate with PostgreSQL."""
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        ) from exc
+
+    return {
+        "status": "ready",
+        "database": "connected",
+    }
