@@ -1,10 +1,14 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Integer, String, Uuid, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+
+if TYPE_CHECKING:
+    from app.models.fleet_event import FleetEvent
 
 
 class Vehicle(Base):
@@ -71,4 +75,8 @@ class Vehicle(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+    events: Mapped[list["FleetEvent"]] = relationship(
+        back_populates="vehicle",
     )

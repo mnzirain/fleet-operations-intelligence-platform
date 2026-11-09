@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.api.routes.fleet_events import router as fleet_events_router
 from app.api.routes.vehicles import router as vehicles_router
 from app.core.config import settings
 from app.db.session import get_db
@@ -19,6 +20,7 @@ app = FastAPI(
 )
 
 app.include_router(vehicles_router)
+app.include_router(fleet_events_router)
 
 
 @app.get("/")
