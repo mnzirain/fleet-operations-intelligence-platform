@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -7,7 +8,11 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models import FleetEvent, FleetEventFinding, Vehicle
 from app.schemas.fleet_event import FleetEventCreate, FleetEventResponse
+from app.schemas.fleet_investigation import FleetEventInvestigationResponse
 from app.services.fleet_event_etl import transform_fleet_event
+from app.services.fleet_event_investigation import (
+    get_fleet_event_investigation,
+)
 from app.services.fleet_rules import evaluate_speed_rule
 
 router = APIRouter(
@@ -142,3 +147,23 @@ def ingest_fleet_event(
     db.refresh(db_event)
 
     return db_event
+
+
+@router.get(
+    "/{event_id}/investigation",
+    response_model=FleetEventInvestigationResponse,
+)
+def investigate_fleet_event(
+    event_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """Return a read-only investigation report for a fleet event."""
+    report = get_fleet_event_investigation(db, event_id)
+
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fleet event not found.",
+        )
+
+    return report
