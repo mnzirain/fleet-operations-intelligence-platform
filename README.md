@@ -1,20 +1,40 @@
 
 # Fleet Operations Intelligence Platform
 
-A Python-based fleet operations backend demonstrating vehicle management, telemetry ingestion, data validation and normalization, deterministic operational rules, event recovery, and evidence-based fleet event investigation.
+# Fleet Operations Intelligence Platform
 
-The project demonstrates practical backend engineering and data integration patterns using FastAPI, PostgreSQL, SQLAlchemy, and automated CI.
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
+![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-ORM-D71F00?logo=sqlalchemy&logoColor=white)
+![Pydantic](https://img.shields.io/badge/Pydantic-Validation-E92063?logo=pydantic&logoColor=white)
+![Alembic](https://img.shields.io/badge/Alembic-Migrations-6BA81E)
+![Pytest](https://img.shields.io/badge/Pytest-Testing-0A9EDC?logo=pytest&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-CI-2088FF?logo=githubactions&logoColor=white)
+![GitHub last commit](https://img.shields.io/github/last-commit/mnzirain/fleet-operations-intelligence-platform)
+![GitHub issues](https://img.shields.io/github/issues/mnzirain/fleet-operations-intelligence-platform)
 
-**Status:** Active development
-**Language:** Python 3.12
-**API framework:** FastAPI
-**Database:** PostgreSQL 18
+An independently developed, commercially oriented fleet-operations intelligence platform built using Python and modern backend technologies.
+
+The platform is being designed around a practical fleet-operations use case, with the potential to integrate with an existing fleet-tracking environment, subject to technical access, validation and approval.
+
+Its purpose is to transform fleet telemetry and operational events into structured operational intelligence through data ingestion, ETL, deterministic rule evaluation and evidence-based investigation.
+
+The longer-term architecture is intended to incorporate AI-assisted investigations, LLM-based explanations, AI evaluation frameworks, guardrails and human approval workflows.
+
+**Current status:** Active development. Core backend and event-processing capabilities are implemented and tested. Advanced AI governance and external production integration remain on the development roadmap.
+
+- **Language:** Python 3.12
+- **API framework:** FastAPI
+- **Database:** PostgreSQL 18
 
 ---
 
 ## 1. Project Overview
 
-Fleet Operations Intelligence Platform is an independently developed portfolio project designed to demonstrate how fleet tracking data can be received, validated, transformed, stored, and evaluated through a structured backend system.
+Fleet Operations Intelligence Platform is an independently developed engineering project with a commercial-use orientation. It is designed to demonstrate how data from fleet-tracking environments can be received, validated, transformed, stored and evaluated through a structured backend system.
+
+The architecture is being developed with potential real-world fleet-system integration in mind. The current implementation establishes the backend foundation, while additional capabilities are being developed incrementally.
 
 The platform currently provides:
 
@@ -86,7 +106,7 @@ The investigation endpoint provides a read-only view of the event, its processin
 | Testing | Pytest |
 | Code quality | Ruff |
 | API documentation | OpenAPI / Swagger UI |
-| CI/CD | GitHub Actions |
+| Continuous Integration (CI) | GitHub Actions |
 
 ## 4. Implemented Features
 
@@ -377,6 +397,31 @@ The project follows several important design principles:
 - **Recoverability:** Design processing so eligible events can be recovered.
 - **Testability:** Verify application behaviour through automated tests.
 - **Incremental development:** Introduce additional capabilities without compromising existing functionality.
+
+## Implementation Status
+
+The platform is being developed incrementally. The following table distinguishes implemented capabilities from planned enhancements.
+
+| Capability | Status |
+|---|---|
+| Python / FastAPI backend | Implemented |
+| PostgreSQL persistence | Implemented |
+| Vehicle management APIs | Implemented |
+| Fleet-event ingestion | Implemented |
+| Data validation and ETL | Implemented |
+| Duplicate-event handling | Implemented |
+| Deterministic operational rules | Implemented |
+| Database-backed event recovery | Implemented |
+| Evidence-based investigation reporting | Implemented |
+| Automated testing and GitHub Actions CI | Implemented |
+| AI-assisted investigation | Planned |
+| LLM-based explanations | Planned |
+| AI evaluation frameworks | Planned |
+| AI guardrails and output validation | Planned |
+| Human review and approval workflows | Planned |
+| External fleet-tracking integration | Planned, subject to access and approval |
+
+The planned capabilities represent the intended development direction and are not yet implemented or commercially deployed.
 
 ## 11. Roadmap
 
