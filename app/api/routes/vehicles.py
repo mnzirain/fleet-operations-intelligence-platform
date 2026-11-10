@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.security import require_api_key
 from app.db.session import get_db
 from app.models import Vehicle
 from app.schemas.vehicle import VehicleCreate, VehicleResponse, VehicleUpdate
@@ -11,6 +12,7 @@ from app.schemas.vehicle import VehicleCreate, VehicleResponse, VehicleUpdate
 router = APIRouter(
     prefix="/vehicles",
     tags=["Vehicles"],
+    dependencies=[Depends(require_api_key)],
 )
 
 

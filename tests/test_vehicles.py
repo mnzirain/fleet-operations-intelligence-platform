@@ -7,8 +7,9 @@ from app.db.session import get_db
 from app.main import app
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import IntegrityError
+from tests.constants import TEST_API_KEY
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": TEST_API_KEY})
 
 VEHICLE_ID = UUID("6fe69179-961c-49fa-be52-6975ab55c991")
 
