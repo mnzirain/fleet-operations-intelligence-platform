@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.security import require_api_key
 from app.db.session import get_db
 from app.models import FleetEvent, FleetEventFinding, Vehicle
 from app.schemas.fleet_event import FleetEventCreate, FleetEventResponse
@@ -18,6 +19,7 @@ from app.services.fleet_rules import evaluate_speed_rule
 router = APIRouter(
     prefix="/fleet-events",
     tags=["Fleet Events"],
+    dependencies=[Depends(require_api_key)],
 )
 
 

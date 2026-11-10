@@ -5,6 +5,7 @@ from uuid import uuid4
 from app.api.routes.fleet_events import get_db
 from app.main import app
 from fastapi.testclient import TestClient
+from tests.constants import TEST_API_KEY
 
 
 def make_event(
@@ -63,7 +64,7 @@ def configure_mock_database(event, findings=None):
 
 def make_client(mock_db):
     app.dependency_overrides[get_db] = lambda: mock_db
-    return TestClient(app)
+    return TestClient(app, headers={"X-API-Key": TEST_API_KEY})
 
 
 def test_investigation_returns_processed_event_and_findings():

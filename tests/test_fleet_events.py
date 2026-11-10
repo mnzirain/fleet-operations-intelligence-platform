@@ -10,8 +10,9 @@ from app.main import app
 from app.models import FleetEvent, FleetEventFinding
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import SQLAlchemyError
+from tests.constants import TEST_API_KEY
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": TEST_API_KEY})
 
 VEHICLE_ID = uuid4()
 
@@ -19,7 +20,6 @@ VEHICLE_ID = uuid4()
 def test_ingest_speed_event_creates_finding(monkeypatch):
     """Verify that an excessive speed event creates an operational finding."""
     mock_db = Mock()
-
     vehicle = SimpleNamespace(id=VEHICLE_ID)
 
     mock_db.query.return_value.filter.return_value.first.side_effect = [
@@ -58,7 +58,6 @@ def test_ingest_speed_event_creates_finding(monkeypatch):
         assert data["normalized_data"]["speed_kph"] == 115.0
 
         added_instances = [call.args[0] for call in mock_db.add.call_args_list]
-
         findings = [
             instance
             for instance in added_instances
@@ -92,7 +91,6 @@ def test_ingest_invalid_speed_event_preserves_failed_event():
             instance.received_at = datetime.now(UTC)
 
     mock_db.add.side_effect = add_to_mock_database
-
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
@@ -111,16 +109,12 @@ def test_ingest_invalid_speed_event_preserves_failed_event():
         assert response.json() == {"detail": "speed cannot be negative."}
 
         added_instances = [call.args[0] for call in mock_db.add.call_args_list]
-
         events = [
             instance for instance in added_instances if isinstance(instance, FleetEvent)
         ]
 
         assert len(events) == 1
-        assert events[0].payload == {
-            "speed": -5,
-            "unit": "km/h",
-        }
+        assert events[0].payload == {"speed": -5, "unit": "km/h"}
         assert events[0].processing_status == "failed"
         assert events[0].normalized_data is None
         assert events[0].error_message == "speed cannot be negative."
@@ -151,7 +145,6 @@ def test_ingest_duplicate_event_returns_existing_event():
 
     mock_db = Mock()
     mock_db.query.return_value.filter.return_value.first.return_value = existing_event
-
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
@@ -190,7 +183,6 @@ def test_ingest_duplicate_event_with_different_payload_returns_conflict():
     )
 
     mock_db.query.return_value.filter.return_value.first.return_value = existing_event
-
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
@@ -219,9 +211,7 @@ def test_ingest_duplicate_event_with_different_payload_returns_conflict():
 def test_ingest_event_with_unknown_vehicle_returns_not_found():
     """Verify that events for unregistered vehicles are rejected."""
     mock_db = Mock()
-
     mock_db.query.return_value.filter.return_value.first.return_value = None
-
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
@@ -285,7 +275,6 @@ def test_ingest_normal_speed_event_creates_no_finding(monkeypatch):
         assert data["normalized_data"]["speed_kph"] == 85.0
 
         added_instances = [call.args[0] for call in mock_db.add.call_args_list]
-
         findings = [
             instance
             for instance in added_instances
