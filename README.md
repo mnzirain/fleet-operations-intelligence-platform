@@ -1,6 +1,7 @@
 
 # Fleet Operations Intelligence Platform
 
+
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
@@ -119,9 +120,27 @@ REST API endpoints support:
 - Deleting vehicles.
 - Handling duplicate vehicle identifiers.
 
+
 ### Fleet Event Ingestion
 
-The event ingestion API accepts fleet tracking events and:
+The event ingestion API accepts fleet tracking events authenticated using HMAC-SHA256 webhook signatures.
+
+The endpoint:
+
+- Requires `X-Webhook-Timestamp` and `X-Webhook-Signature` headers.
+- Verifies the signature against the exact raw request body.
+- Uses a configurable timestamp tolerance (300 seconds by default).
+- Rejects missing, malformed, expired, or invalid signatures.
+- Returns HTTP 503 when webhook authentication is not configured.
+
+The signing contract is:
+
+1. Obtain the current Unix timestamp in seconds.
+2. Construct the signed message as `timestamp + "." + raw_request_body`.
+3. Calculate an HMAC-SHA256 digest using `FLEET_WEBHOOK_SECRET`.
+4. Send the signature as `sha256=<hex_digest>`.
+
+The API then:
 
 1. Validates the incoming request.
 2. Checks whether the associated vehicle exists.
@@ -132,6 +151,9 @@ The event ingestion API accepts fleet tracking events and:
 7. Transforms and normalizes the telemetry data.
 8. Evaluates applicable operational rules.
 9. Persists any generated findings.
+
+Webhook timestamps are accepted within the configured tolerance window. This limits the lifetime of signed requests but does not provide complete replay prevention. Existing event idempotency protects against duplicate event creation.
+
 
 ### Data Validation and ETL
 
@@ -210,6 +232,22 @@ This feature establishes a foundation for future AI-assisted investigation while
 |---|---|---|
 | POST | `/fleet-events/` | Ingest a fleet event |
 | GET | `/fleet-events/{event_id}/investigation` | Retrieve an investigation report |
+
+
+#### Authentication
+
+The API uses separate authentication mechanisms for operational access and webhook ingestion.
+
+| Endpoint group | Authentication | Header |
+|---|---|---|
+| Vehicle endpoints | API key | `X-API-Key` |
+| `POST /fleet-events/` | HMAC-SHA256 webhook signature | `X-Webhook-Timestamp` and `X-Webhook-Signature` |
+| `GET /fleet-events/{event_id}/investigation` | API key | `X-API-Key` |
+
+The webhook ingestion endpoint does not accept the API key as a substitute for a valid webhook signature.
+
+This separation follows the principle of least privilege: an external fleet tracking system can submit authenticated events without being granted access to vehicle management or investigation endpoints.
+
 
 ### Interactive API Documentation
 
@@ -304,14 +342,40 @@ python -m pip install -r requirements-dev.txt
 
 Create a local `.env` file based on `.env.example`.
 
-Configure the database connection:
+Configure the following environment variables:
 
-```env
-FLEET_ENVIRONMENT=development
-DATABASE_URL=postgresql+psycopg://fleet_app:YOUR_PASSWORD@localhost:5432/fleet_operations
+| Variable | Purpose | Requirement |
+|---|---|---|
+| `FLEET_ENVIRONMENT` | Application environment | Defaults to development |
+| `DATABASE_URL` | PostgreSQL connection string | Required for database access |
+| `FLEET_API_KEY` | Authenticates API-key-protected endpoints | Minimum 16 characters |
+| `FLEET_WEBHOOK_SECRET` | Authenticates incoming webhook signatures | Minimum 32 characters |
+| `FLEET_WEBHOOK_TOLERANCE_SECONDS` | Permitted webhook timestamp difference | Defaults to 300 seconds; maximum 3600 |
+
+Use your own PostgreSQL credentials in `DATABASE_URL`.
+
+Generate a cryptographically secure webhook secret using:
+
+```powershell
+python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-Use your own PostgreSQL credentials. Do not commit `.env` or database passwords to Git.
+Copy the generated value into your local `.env` file:
+
+```env
+FLEET_WEBHOOK_SECRET=your_generated_secret
+FLEET_WEBHOOK_TOLERANCE_SECONDS=300
+```
+
+The webhook secret is optional during application startup. However, `POST /fleet-events/` returns HTTP 503 until a valid webhook secret is configured.
+
+The API key is required for vehicle management and event investigation endpoints.
+
+**Security precautions:**
+
+- Never commit `.env` to Git.
+- Never expose API keys, webhook secrets, or database passwords in source code, screenshots, logs, or public documentation.
+- Use separate, randomly generated secrets for API-key and webhook authentication.
 
 ### Apply database migrations
 
@@ -328,6 +392,47 @@ python -m uvicorn app.main:app --reload
 The API will be available at:
 
 `http://127.0.0.1:8000`
+
+### Send a demonstration webhook
+
+The project includes a demonstration script that sends an authenticated fleet event to the running API.
+
+Before running the script:
+
+1. Start the API.
+2. Configure `FLEET_WEBHOOK_SECRET` in your local `.env` file.
+3. Ensure at least one vehicle is registered in the database.
+
+Open a second PowerShell terminal in the project directory and run:
+
+```powershell
+$secretLine = Get-Content .env | Where-Object { $_ -match '^FLEET_WEBHOOK_SECRET=' } | Select-Object -First 1
+$env:FLEET_WEBHOOK_SECRET = $secretLine.Substring('FLEET_WEBHOOK_SECRET='.Length)
+
+$env:FLEET_DEMO_VEHICLE_ID = '<existing-vehicle-uuid>'
+
+python scripts\send_webhook.py
+```
+
+Replace `<existing-vehicle-uuid>` with the UUID of a registered vehicle.
+
+The script:
+
+- Generates a unique source event identifier.
+- Creates a demonstration `SPEED` event.
+- Uses a current UTC timestamp.
+- Signs the exact JSON request body using HMAC-SHA256.
+- Sends the required webhook authentication headers.
+- Displays the API response.
+
+The demonstration uses synthetic telemetry data, including a speed value of 85 km/h and sample coordinates. These values do not represent a verified real-world vehicle location or speed.
+
+A successful request returns HTTP 201 with the created fleet event.
+
+The sender requires the webhook secret but does not require the API key.
+
+The API URL defaults to `http://127.0.0.1:8000`. Set `FLEET_API_URL` in the environment if the API is running at a different address.
+
 
 ## 8. Testing and Code Quality
 
@@ -349,22 +454,30 @@ Check formatting:
 python -m ruff format --check .
 ```
 
-The project includes automated tests covering:
+The automated test suite covers:
 
-- Application health.
+- Application health and readiness.
 - Vehicle management.
 - Fleet event ingestion.
+- HMAC-SHA256 webhook authentication.
+- Missing, malformed, expired, and invalid webhook signatures.
+- Webhook timestamp tolerance.
+- API key authentication.
+- Configuration validation and missing credentials.
 - Event validation and ETL.
-- Deterministic rule evaluation.
-- Event recovery.
-- PostgreSQL recovery behaviour.
+- Deterministic operational rule evaluation.
+- Event recovery and PostgreSQL recovery behaviour.
 - Fleet event investigation.
+- Duplicate event handling and idempotency.
 
-The latest local verification recorded:
+At the time of the latest local verification:
 
-- 46 automated tests passing.
-- Ruff lint checks passing.
-- Ruff formatting checks passing.
+- 75 automated tests passed.
+- Ruff lint checks passed.
+- Ruff formatting checks passed.
+
+These results describe local verification and do not imply that the latest changes have already been committed or merged.
+
 
 ## 9. Continuous Integration
 
