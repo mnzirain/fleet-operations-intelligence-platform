@@ -10,11 +10,22 @@ from app.main import app
 from app.models import FleetEvent, FleetEventFinding
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import SQLAlchemyError
-from tests.constants import TEST_API_KEY
+from tests.webhook_helpers import make_signed_webhook_request
 
-client = TestClient(app, headers={"X-API-Key": TEST_API_KEY})
+client = TestClient(app)
 
 VEHICLE_ID = uuid4()
+
+
+def post_signed_event(payload):
+    """Send a fleet event with a valid HMAC signature."""
+    body, headers = make_signed_webhook_request(payload)
+
+    return client.post(
+        "/fleet-events/",
+        content=body,
+        headers=headers,
+    )
 
 
 def test_ingest_speed_event_creates_finding(monkeypatch):
@@ -38,15 +49,14 @@ def test_ingest_speed_event_creates_finding(monkeypatch):
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
-        response = client.post(
-            "/fleet-events/",
-            json={
+        response = post_signed_event(
+            {
                 "source_event_id": "TEST-SPEED-001",
                 "vehicle_id": str(VEHICLE_ID),
                 "event_type": "SPEED",
                 "occurred_at": "2026-11-09T07:00:00Z",
                 "payload": {"speed": 115, "unit": "km/h"},
-            },
+            }
         )
 
         assert response.status_code == 201
@@ -94,15 +104,14 @@ def test_ingest_invalid_speed_event_preserves_failed_event():
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
-        response = client.post(
-            "/fleet-events/",
-            json={
+        response = post_signed_event(
+            {
                 "source_event_id": "TEST-SPEED-INVALID-001",
                 "vehicle_id": str(VEHICLE_ID),
                 "event_type": "SPEED",
                 "occurred_at": "2026-11-09T07:10:00Z",
                 "payload": {"speed": -5, "unit": "km/h"},
-            },
+            }
         )
 
         assert response.status_code == 422
@@ -148,15 +157,14 @@ def test_ingest_duplicate_event_returns_existing_event():
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
-        response = client.post(
-            "/fleet-events/",
-            json={
+        response = post_signed_event(
+            {
                 "source_event_id": "TEST-DUPLICATE-001",
                 "vehicle_id": str(VEHICLE_ID),
                 "event_type": "SPEED",
                 "occurred_at": "2026-11-09T07:20:00Z",
                 "payload": {"speed": 115, "unit": "km/h"},
-            },
+            }
         )
 
         assert response.status_code == 200
@@ -186,15 +194,14 @@ def test_ingest_duplicate_event_with_different_payload_returns_conflict():
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
-        response = client.post(
-            "/fleet-events/",
-            json={
+        response = post_signed_event(
+            {
                 "source_event_id": "TEST-CONFLICT-001",
                 "vehicle_id": str(VEHICLE_ID),
                 "event_type": "SPEED",
                 "occurred_at": "2026-11-09T07:20:00Z",
                 "payload": {"speed": 115, "unit": "km/h"},
-            },
+            }
         )
 
         assert response.status_code == 409
@@ -215,15 +222,14 @@ def test_ingest_event_with_unknown_vehicle_returns_not_found():
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
-        response = client.post(
-            "/fleet-events/",
-            json={
+        response = post_signed_event(
+            {
                 "source_event_id": "TEST-UNKNOWN-VEHICLE-001",
                 "vehicle_id": str(uuid4()),
                 "event_type": "SPEED",
                 "occurred_at": "2026-11-09T07:30:00Z",
                 "payload": {"speed": 85, "unit": "km/h"},
-            },
+            }
         )
 
         assert response.status_code == 404
@@ -256,15 +262,14 @@ def test_ingest_normal_speed_event_creates_no_finding(monkeypatch):
     app.dependency_overrides[get_db] = lambda: mock_db
 
     try:
-        response = client.post(
-            "/fleet-events/",
-            json={
+        response = post_signed_event(
+            {
                 "source_event_id": "TEST-NORMAL-SPEED-001",
                 "vehicle_id": str(VEHICLE_ID),
                 "event_type": "SPEED",
                 "occurred_at": "2026-11-09T07:40:00Z",
                 "payload": {"speed": 85, "unit": "km/h"},
-            },
+            }
         )
 
         assert response.status_code == 201
@@ -319,15 +324,14 @@ def test_processing_database_failure_rolls_back_second_transaction(
             SQLAlchemyError,
             match="Simulated processing database failure.",
         ):
-            client.post(
-                "/fleet-events/",
-                json={
+            post_signed_event(
+                {
                     "source_event_id": "TEST-DB-FAILURE-001",
                     "vehicle_id": str(VEHICLE_ID),
                     "event_type": "SPEED",
                     "occurred_at": "2026-11-09T07:50:00Z",
                     "payload": {"speed": 115, "unit": "km/h"},
-                },
+                }
             )
 
         assert mock_db.commit.call_count == 2

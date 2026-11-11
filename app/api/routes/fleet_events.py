@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.security import require_api_key
+from app.core.security import require_api_key, require_webhook_signature
 from app.db.session import get_db
 from app.models import FleetEvent, FleetEventFinding, Vehicle
 from app.schemas.fleet_event import FleetEventCreate, FleetEventResponse
@@ -19,7 +19,6 @@ from app.services.fleet_rules import evaluate_speed_rule
 router = APIRouter(
     prefix="/fleet-events",
     tags=["Fleet Events"],
-    dependencies=[Depends(require_api_key)],
 )
 
 
@@ -40,6 +39,7 @@ def _is_same_event(
     "/",
     response_model=FleetEventResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_webhook_signature)],
 )
 def ingest_fleet_event(
     event: FleetEventCreate,
@@ -154,6 +154,7 @@ def ingest_fleet_event(
 @router.get(
     "/{event_id}/investigation",
     response_model=FleetEventInvestigationResponse,
+    dependencies=[Depends(require_api_key)],
 )
 def investigate_fleet_event(
     event_id: UUID,
